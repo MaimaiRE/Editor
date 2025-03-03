@@ -6,6 +6,7 @@ using System.Linq;
 using System;
 using System.IO;
 using UnityEngine.UIElements;
+using System.Threading.Tasks;
 
 public class AsmDefinition
 {
@@ -20,7 +21,7 @@ public class AsmDefinition
     }
     public string YamlSection()
     {
-        return $"{{fileID: ${FileID}, guid: {GUID}, type: 3}}";
+        return $"{{fileID: {FileID}, guid: {GUID}, type: 3}}";
     }
     public override string ToString()
     {
@@ -50,6 +51,7 @@ public class MetaDefinitions : Dictionary<string, MetaDefinition> { };
 public class AssemblyToLooseScript : EditorWindow
 {
     private List<string> Extensions = new List<string>(){
+        "playable",
         "prefab",
         "unity",
         "asset",
@@ -119,9 +121,45 @@ public class AssemblyToLooseScript : EditorWindow
             files.AddRange(Directory.GetFiles(path, $"*.{extension}", SearchOption.AllDirectories));
         }
         return files;
-    }
+    }    
     private AsmDefinitions asmDefinitions;
     private MetaDefinitions metaDefinitions;
+    private List<string> assets;
+    private void ConvertOne(string assetPath)
+    {
+        var lines = File.ReadAllLines(assetPath);
+        int count = 0;
+        for (int i = 0; i < lines.Length; i++)
+        {        
+            foreach (var key in asmDefinitions.Keys)
+            {
+                if (metaDefinitions.ContainsKey(key))
+                {
+                    var asmDef = asmDefinitions[key];
+                    var asmYaml = asmDef.YamlSection();
+                    var metaDef = metaDefinitions[key];
+                    var metaYaml = metaDef.YamlSection();
+                    while (lines[i].Contains(asmYaml))
+                    {
+                        lines[i] = lines[i].Replace(asmYaml, metaYaml);
+                        count++;
+                    }
+                }
+            }        
+        }
+        if (count > 0)
+        {
+            File.WriteAllLines(assetPath, lines);
+            Debug.Log($"Converted {assetPath}, n={count}");
+        }
+    }
+    private void ConvertAll()
+    {
+        Parallel.ForEach(assets, assetPath =>
+        {
+            ConvertOne(assetPath);
+        });
+    }
     private Vector2[] scroll;
     private void OnEnable()
     {
@@ -171,7 +209,19 @@ public class AssemblyToLooseScript : EditorWindow
         GUILayout.EndHorizontal();
         if (GUILayout.Button("Scan For Assets"))
         {
-            
+            assets = GetFiles(AssetPath, Extensions);
+        }
+        if (assets != null)
+        {
+            GUILayout.Label($"Found {assets.Count} assets");
+        }
+        if (metaDefinitions != null && asmDefinitions != null && assets != null)
+        {
+            GUILayout.Label("Reload the project for changes to take effect");
+            if (GUILayout.Button("Convert All"))
+            {
+                ConvertAll();
+            }
         }
     }
 }
