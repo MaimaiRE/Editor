@@ -1,5 +1,5 @@
 # Usage
 Link this to your Unity project or add it as a submodule in `Assets/Plugin`
 ```bash
-mklink /J "Assets\Plugins\Editor" "C:\path\to\this\repo\Unity"
+cmd /c mklink /J Editor C:\Users\mos9527\MaimaiRE\Editor\
 ```
